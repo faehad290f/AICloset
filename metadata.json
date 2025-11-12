@@ -1,0 +1,5 @@
+{
+  "name": "Zenthflow Virtual Try-On",
+  "description": "Virtually try on clothes using the power of AI. Upload your photo and a clothing item to see your new look. Refine your style with text-based editing and get fashion advice from our AI Style Advisor.",
+  "requestFramePermissions": []
+}
