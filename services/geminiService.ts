@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, GenerateContentResponse } from '@google/genai';
 import { ImagePart, GroundingSource } from '../types';
 
@@ -15,7 +14,20 @@ export const generateVirtualTryOn = async (
   modelImage: ImagePart,
   clothingImage: ImagePart
 ): Promise<string> => {
-  const prompt = "Analyze the clothing in the second image and realistically place it on the person in the first image. Maintain the person's pose and the background. The clothing should fit naturally on the person.";
+  const prompt = `You are a professional virtual stylist performing a virtual try-on.
+Image 1: A person (the model).
+Image 2: A clothing item.
+
+Task: Realistically place the clothing from Image 2 onto the person in Image 1.
+
+**Key Instructions:**
+- **Preserve Identity & Pose:** Do not alter the person's face, body shape, or posture.
+- **Preserve Background:** The background of Image 1 must remain completely unchanged.
+- **Realistic Fit:** The clothing must conform to the person's body contours, with natural folds, wrinkles, and shadows consistent with the lighting in Image 1.
+- **Maintain Clothing Details:** Preserve the texture, color, and patterns of the clothing item.
+- **Seamless Integration:** The final image should look like a real photograph without editing artifacts.
+
+Output only the final image.`;
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -48,13 +60,14 @@ export const editGeneratedImage = async (
   baseImage: ImagePart,
   prompt: string
 ): Promise<string> => {
+  const editInstruction = `You are an expert photo editor. The user wants to edit the provided image. Apply the following instruction: "${prompt}". Maintain realism and high quality. Focus only on the requested change.`;
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
             baseImage,
-            { text: prompt },
+            { text: editInstruction },
           ],
         },
         config: {
@@ -82,6 +95,7 @@ export const getStyleAdvice = async (
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        systemInstruction: "You are 'Zenth', a friendly and knowledgeable AI style advisor. Provide helpful, concise, and encouraging fashion advice. When possible, cite your sources from the web search results.",
         tools: [{ googleSearch: {} }],
       },
     });

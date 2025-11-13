@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ImageFile, ImagePart } from '../types';
 import { fileToGenerativePart } from '../utils/fileUtils';
 import { generateVirtualTryOn, editGeneratedImage } from '../services/geminiService';
@@ -14,21 +13,69 @@ const VirtualTryOn: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const canGenerate = useMemo(() => modelImage && clothingImage, [modelImage, clothingImage]);
   const canEdit = useMemo(() => generatedImage && editPrompt.trim() !== '', [generatedImage, editPrompt]);
+
+  const loadingMessages = useMemo(() => [
+    'Warming up the AI stylist...',
+    'Analyzing the fit and fabric...',
+    'Draping the clothing onto your photo...',
+    'Adding realistic lighting and shadows...',
+    'Putting the final touches on your look...'
+  ], []);
+
+  const editLoadingMessages = useMemo(() => [
+    'Reading your instructions...',
+    'Making the magic happen...',
+    'Perfecting the details...',
+  ], []);
+
+  useEffect(() => {
+    // Cleanup interval on component unmount
+    return () => {
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const startLoadingAnimation = (messages: string[], interval: number) => {
+    if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+    
+    setLoadingMessage(messages[0]);
+    
+    loadingIntervalRef.current = setInterval(() => {
+      setLoadingMessage(prev => {
+        const currentIndex = messages.indexOf(prev);
+        if (currentIndex === -1) return messages[0]; // Fallback
+        const nextIndex = (currentIndex + 1) % messages.length;
+        return messages[nextIndex];
+      });
+    }, interval);
+  };
+  
+  const stopLoadingAnimation = () => {
+    if (loadingIntervalRef.current) {
+      clearInterval(loadingIntervalRef.current);
+      loadingIntervalRef.current = null;
+    }
+    setIsLoading(false);
+    setLoadingMessage('');
+  };
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
     setIsLoading(true);
-    setLoadingMessage('Generating your new style...');
     setError(null);
     setGeneratedImage(null);
+    startLoadingAnimation(loadingMessages, 2500);
 
     try {
-      const modelPart = await fileToGenerativePart(modelImage.file);
-      const clothingPart = await fileToGenerativePart(clothingImage.file);
+      const modelPart = await fileToGenerativePart(modelImage!.file);
+      const clothingPart = await fileToGenerativePart(clothingImage!.file);
       const newImageBase64 = await generateVirtualTryOn(modelPart, clothingPart);
       setGeneratedImage({
         inlineData: {
@@ -39,8 +86,7 @@ const VirtualTryOn: React.FC = () => {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred.');
     } finally {
-      setIsLoading(false);
-      setLoadingMessage('');
+      stopLoadingAnimation();
     }
   };
 
@@ -48,8 +94,8 @@ const VirtualTryOn: React.FC = () => {
     if (!canEdit || !generatedImage) return;
 
     setIsLoading(true);
-    setLoadingMessage('Applying your edits...');
     setError(null);
+    startLoadingAnimation(editLoadingMessages, 1800);
 
     try {
       const editedImageBase64 = await editGeneratedImage(generatedImage, editPrompt);
@@ -63,8 +109,7 @@ const VirtualTryOn: React.FC = () => {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred.');
     } finally {
-      setIsLoading(false);
-      setLoadingMessage('');
+      stopLoadingAnimation();
     }
   };
 
